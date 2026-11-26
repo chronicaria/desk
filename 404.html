@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<title>Desk</title>
+<script>
+(function () {
+  // Any unknown path goes back to the site root (a project site lives under its repository name on github.io).
+  var p = location.pathname.split('/').filter(Boolean), base = '/';
+  if (/\.github\.io$/i.test(location.hostname) && p.length && !/\.html?$/i.test(p[0])) base = '/' + p[0] + '/';
+  location.replace(base + (location.hash || ''));
+})();
+</script>
+</head>
+<body></body>
+</html>

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Desk</title>
+<script>try{var t=localStorage.getItem('desk-theme');if(t)document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<style id="gate-css">
+:root{--paper:#f4f2ec;--ink:#1c1e21;--mute:#7a776f;--rule:#c3bdae;--accent:#1f4e79;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--paper:#131518;--ink:#e8e6e0;--mute:#8e8b84;--rule:#3b4046;--accent:#86b4e0;color-scheme:dark}}
+:root[data-theme="dark"]{--paper:#131518;--ink:#e8e6e0;--mute:#8e8b84;--rule:#3b4046;--accent:#86b4e0;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--paper);color:var(--ink);font:16px/1.4 'Iowan Old Style',Georgia,serif}
+form{width:min(320px,calc(100vw - 32px));border-top:1px solid var(--ink);padding-top:16px}
+h1{font-weight:400;font-size:28px;margin:0 0 16px;letter-spacing:-.01em}
+label{display:block;font:600 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-bottom:8px}
+.row{display:flex;border:1px solid var(--rule);border-radius:2px}
+input{flex:1;min-width:0;font:16px/1 ui-monospace,Menlo,monospace;color:var(--ink);background:transparent;border:0;padding:12px}
+button{font:600 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--paper);background:var(--ink);border:0;padding:0 16px;cursor:pointer}
+button[disabled]{opacity:.5;cursor:wait}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.no .row{animation:no .3s}
+@keyframes no{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+@media (prefers-reduced-motion:reduce){.no .row{animation:none;border-color:var(--ink)}}
+[hidden]{display:none!important}
+</style>
+<script type="application/json" id="cfg">{"s":"u6C5sb4QR32Zh1PtsCD+4Q==","i":600000,"m":"x/a2a8d847691c08c33e1837d5.bin","v":"835be0153c95"}</script>
+</head>
+<body>
+<form id="gate" autocomplete="on" hidden>
+<h1>Desk</h1>
+<label for="pw">Password</label>
+<div class="row"><input id="pw" type="password" name="password" autocomplete="current-password" required autofocus><button id="go" type="submit">Open</button></div>
+</form>
+<script>
+(function () {
+  'use strict';
+  var C = JSON.parse(document.getElementById('cfg').textContent), S = crypto.subtle, KEY = 'desk.' + C.v, enc = new TextEncoder(), dec = new TextDecoder();
+  var form = document.getElementById('gate'), pw = document.getElementById('pw'), go = document.getElementById('go');
+  function b64d(s) { var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; }
+  function b64e(u) { var s = ''; for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }
+  function bin(path) { return fetch(path, { cache: 'no-cache' }).then(function (r) { if (!r.ok) throw new Error('fetch'); return r.arrayBuffer(); }).then(function (b) { return new Uint8Array(b); }); }
+  function gunzip(buf) { return new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer(); }
+  function open(key, path, name) {
+    return bin(path).then(function (u) { return S.decrypt({ name: 'AES-GCM', iv: u.subarray(0, 12), additionalData: enc.encode(name) }, key, u.subarray(12)); }).then(gunzip);
+  }
+  function derive(p) {
+    return S.importKey('raw', enc.encode(p), 'PBKDF2', false, ['deriveBits']).then(function (base) {
+      return S.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: b64d(C.s), iterations: C.i }, base, 256);
+    }).then(function (bits) { return new Uint8Array(bits); });
+  }
+  function unlock(raw) {
+    return S.importKey('raw', raw, 'AES-GCM', false, ['decrypt']).then(function (key) {
+      return open(key, C.m, 'manifest').then(function (b) { return { key: key, man: JSON.parse(dec.decode(b)) }; });
+    });
+  }
+  function boot(ctx) {
+    var F = ctx.man.files;
+    function bytes(name) { if (!F[name]) return Promise.reject(new Error('missing')); return open(ctx.key, F[name], name); }
+    function text(name) { return bytes(name).then(function (b) { return dec.decode(b); }); }
+    function run(name) { return text(name).then(function (code) { (new Function(code))(); }); }
+    var fonts = Promise.all((ctx.man.fonts || []).map(function (f) {
+      return bytes(f.file).then(function (b) { var ff = new FontFace(f.family, b, f.desc || {}); document.fonts.add(ff); return ff.load(); }).catch(function () { });
+    }));
+    return Promise.all([text('app.css'), run('data.js'), run('logos.js'), text('desk.json'), fonts]).then(function (r) {
+      var st = document.createElement('style'); st.textContent = r[0]; document.head.appendChild(st);
+      var g = document.getElementById('gate-css'); if (g) g.remove();
+      window.DESK = JSON.parse(r[3]);
+      return run('app.js');
+    }).then(function () {
+      window.DeskApp.start({ load: text, lock: function () { try { sessionStorage.removeItem(KEY); } catch (e) { } location.replace(location.pathname); } });
+    });
+  }
+  function ask() { form.hidden = false; pw.focus(); }
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var p = pw.value; if (!p) return;
+    go.disabled = true; form.setAttribute('aria-busy', 'true'); form.classList.remove('no');
+    derive(p).then(function (raw) {
+      return unlock(raw).then(function (ctx) { try { sessionStorage.setItem(KEY, b64e(raw)); } catch (e) { } form.hidden = true; boot(ctx).catch(function () { }); });
+    }).catch(function () {
+      pw.value = ''; go.disabled = false; form.removeAttribute('aria-busy'); pw.setAttribute('aria-invalid', 'true');
+      void form.offsetWidth; form.classList.add('no'); pw.focus();
+    });
+  });
+  var saved = null;
+  try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('desk.') === 0 && k !== KEY) sessionStorage.removeItem(k); }); saved = sessionStorage.getItem(KEY); } catch (e) { }
+  if (saved) unlock(b64d(saved)).then(function (ctx) { boot(ctx).catch(function () { }); }, function () { try { sessionStorage.removeItem(KEY); } catch (e) { } ask(); });
+  else ask();
+})();
+</script>
+</body>
+</html>
